@@ -22,6 +22,16 @@ class User extends Authenticatable
         'clerk_user_id',
         'profile_picture_url',
         'role',
+        'bio',
+        'job_title',
+        'company',
+        'location',
+        'phone',
+        'skills',
+        'website',
+        'linkedin',
+        'github',
+        'twitter',
     ];
 
     /**

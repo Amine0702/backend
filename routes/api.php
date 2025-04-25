@@ -2,11 +2,14 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\TeamMemberController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ColumnController;
 use App\Http\Controllers\TaskController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\TeamMemberController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\AIController;
+use App\Http\Controllers\NoteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,36 +22,43 @@ use App\Http\Controllers\UserController;
 |
 */
 
-// Middleware pour ajouter le header Clerk User ID à toutes les requêtes
-Route::middleware(['api'])->group(function () {
-    // User Routes
-    Route::post('/users', [UserController::class, 'createOrUpdateUser']);
-    Route::get('/users/clerk/{clerkUserId}', [UserController::class, 'getUserByClerkId']);
+// User routes
+Route::post('/users', [UserController::class, 'createOrUpdateUser']);
+Route::get('/users/clerk/{clerkUserId}', [UserController::class, 'getUserByClerkId']);
+Route::put('/users/{clerkUserId}/profile', [UserController::class, 'updateUserProfile']);
 
-    // Team Member Routes
-    Route::post('/team-members', [TeamMemberController::class, 'store']);
-    Route::get('/team-members/clerk/{clerkUserId}', [TeamMemberController::class, 'getByClerkId']);
+// Project routes
+Route::get('/projects/user/{clerkUserId}', [ProjectController::class, 'getUserProjects']);
+Route::post('/projects', [ProjectController::class, 'store']);
+Route::get('/projects/{id}', [ProjectController::class, 'show']);
+Route::post('/projects/invitation/{token}', [ProjectController::class, 'acceptInvitation']);
+Route::get('/projects/{id}/stats', [ProjectController::class, 'getProjectStats']);
 
-    // Project Routes
-    Route::get('/projects/user/{clerkUserId}', [ProjectController::class, 'getUserProjects']);
-    Route::post('/projects', [ProjectController::class, 'store']);
-    Route::get('/projects/{id}', [ProjectController::class, 'show']);
-    Route::get('/projects/{id}/tasks', [ProjectController::class, 'getTasks']);
-    Route::get('/projects/{id}/stats', [ProjectController::class, 'getStats']);
-    Route::post('/projects/invitation/{token}', [ProjectController::class, 'acceptInvitation']);
-    Route::post('/projects/{id}/invite', [ProjectController::class, 'inviteUsers']); // New route for inviting users
+// Column routes
+Route::post('/columns', [ColumnController::class, 'store']);
+Route::put('/columns/order', [ColumnController::class, 'updateOrder']);
 
-    // Column Routes
-    Route::post('/columns', [ColumnController::class, 'store']);
-    Route::put('/columns/order', [ColumnController::class, 'updateOrder']);
+// Task routes
+Route::post('/tasks', [TaskController::class, 'store']);
+Route::put('/tasks/{id}', [TaskController::class, 'update']);
+Route::delete('/tasks/{id}', [TaskController::class, 'destroy']);
+Route::post('/tasks/move', [TaskController::class, 'moveTask']);
+Route::post('/tasks/{id}/toggle-timer', [TaskController::class, 'toggleTimer']);
+Route::post('/tasks/{taskId}/comments', [TaskController::class, 'addComment']);
+Route::post('/tasks/{taskId}/attachments', [TaskController::class, 'addAttachment']);
 
-    // Task Routes
-    Route::post('/tasks', [TaskController::class, 'store']);
-    Route::put('/tasks/{id}', [TaskController::class, 'update']);
-    Route::delete('/tasks/{id}', [TaskController::class, 'destroy']);
-    Route::post('/tasks/move', [TaskController::class, 'moveTask']);
-    Route::post('/tasks/{id}/toggle-timer', [TaskController::class, 'toggleTimer']);
-    Route::post('/tasks/{id}/comments', [TaskController::class, 'addComment']);
-    Route::post('/tasks/{id}/attachments', [TaskController::class, 'addAttachment']);
-    Route::get('/tasks/search', [TaskController::class, 'search']);
-});
+// AI routes
+Route::post('/ai/generate-task', [AIController::class, 'generateTask']);
+
+// Report routes
+Route::get('/reports/projects', [ReportController::class, 'getProjectsReport']);
+Route::get('/reports/tasks', [ReportController::class, 'getTasksReport']);
+Route::get('/reports/history/{clerkUserId}', [ReportController::class, 'getHistoricalReports']);
+Route::post('/reports/generate', [ReportController::class, 'generateReport']);
+Route::post('/reports/schedule', [ReportController::class, 'scheduleReport']);
+
+// Note routes
+Route::get('/notes/user/{clerkUserId}', [NoteController::class, 'getUserNotes']);
+Route::post('/notes', [NoteController::class, 'store']);
+Route::put('/notes/{id}', [NoteController::class, 'update']);
+Route::delete('/notes/{id}', [NoteController::class, 'destroy']);

@@ -78,4 +78,65 @@ class UserController extends Controller
             'role' => $user->role,
         ]);
     }
+
+    /**
+     * Update user profile.
+     */
+    public function updateUserProfile(Request $request, string $clerkUserId)
+    {
+        $user = User::where('clerk_user_id', $clerkUserId)->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|string|max:255',
+            'email' => 'sometimes|email',
+            'bio' => 'nullable|string',
+            'jobTitle' => 'nullable|string|max:255',
+            'company' => 'nullable|string|max:255',
+            'location' => 'nullable|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'skills' => 'nullable|string',
+            'website' => 'nullable|string|url',
+            'linkedin' => 'nullable|string|url',
+            'github' => 'nullable|string|url',
+            'twitter' => 'nullable|string|url',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Update user profile
+        $user->update([
+            'name' => $request->name ?? $user->name,
+            'email' => $request->email ?? $user->email,
+            'bio' => $request->bio,
+            'job_title' => $request->jobTitle,
+            'company' => $request->company,
+            'location' => $request->location,
+            'phone' => $request->phone,
+            'skills' => $request->skills,
+            'website' => $request->website,
+            'linkedin' => $request->linkedin,
+            'github' => $request->github,
+            'twitter' => $request->twitter,
+        ]);
+
+        // Update team member record if it exists
+        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+        if ($teamMember) {
+            $teamMember->update([
+                'name' => $request->name ?? $teamMember->name,
+                'email' => $request->email ?? $teamMember->email,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user' => $user,
+        ], 200);
+    }
 }
