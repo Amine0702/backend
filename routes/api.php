@@ -144,8 +144,4 @@ Route::get('/projects/{id}/task-analysis', [ProjectController::class, 'getProjec
 
 
 
-Route::get('/', function () {
-    return response()->json([
-        'message' => '🚀 L’API Laravel fonctionne parfaitement sur Railway !',
-    ]);
-});
+
