@@ -139,3 +139,13 @@ Route::get('/users/{id}/details', [UserController::class, 'getUserDetailsById'])
 // Route pour récupérer les statistiques de projets par mois
 Route::get('/projects/stats/monthly', [ProjectController::class, 'getProjectStatsByMonth']);
 Route::get('/projects/{id}/task-analysis', [ProjectController::class, 'getProjectTaskAnalysis']);
+
+
+
+
+Route::get('/', function () {
+    return response()->json([
+        'message' => '✅ API Laravel تعمل على جهازك المحلي',
+        'status' => 'online',
+    ]);
+});
