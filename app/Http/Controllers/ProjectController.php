@@ -99,24 +99,17 @@ class ProjectController extends Controller
         // Add invited members
         if ($request->has('invitedMembers') && is_array($request->invitedMembers)) {
             foreach ($request->invitedMembers as $email) {
-                // Generate invitation token for all invitations
-                $invitationToken = Str::random(32);
-
-                // Add as an invited member (même pour les utilisateurs existants)
-                InvitedMember::create([
-                    'project_id' => $project->id,
-                    'email' => $email,
-                    'status' => 'pending',
-                    'invitation_token' => $invitationToken,
-                    'role' => 'member', // Default role
-                ]);
-
-                // Send invitation email
-                $this->sendInvitationEmail($project, $email, $invitationToken, 'member');
-
-                // Create notification for existing members
+                // Check if the member already exists
                 $existingMember = TeamMember::where('email', $email)->first();
+
                 if ($existingMember) {
+                    // Add as a team member with member role
+                    $project->teamMembers()->attach($existingMember->id, ['role' => 'member']);
+
+                    // Send notification email to existing member
+                    $this->sendInvitationEmail($project, $email, null, 'member');
+                    
+                    // Create notification for the invited member
                     $this->createNotification(
                         $existingMember->id,
                         $teamMember->id,
@@ -131,6 +124,21 @@ class ProjectController extends Controller
                         'App\Models\Project',
                         $project->id
                     );
+                } else {
+                    // Generate invitation token
+                    $invitationToken = Str::random(32);
+
+                    // Add as an invited member
+                    InvitedMember::create([
+                        'project_id' => $project->id,
+                        'email' => $email,
+                        'status' => 'pending',
+                        'invitation_token' => $invitationToken,
+                        'role' => 'member', // Default role
+                    ]);
+
+                    // Send invitation email
+                    $this->sendInvitationEmail($project, $email, $invitationToken, 'member');
                 }
             }
         }
@@ -148,7 +156,7 @@ class ProjectController extends Controller
     {
         try {
             // Create join link (with token if provided)
-            $baseUrl = 'frontend-production-46b5.up.railway.app';
+            $baseUrl ='frontend-production-46b5.up.railway.app';
             $joinLink = $baseUrl . '/projects/' . $project->id;
 
             if ($invitationToken) {
@@ -211,21 +219,8 @@ class ProjectController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // Check if user is already a member of this project
-        $project = Project::findOrFail($invitation->project_id);
-        $isAlreadyMember = $project->teamMembers()->where('team_member_id', $teamMember->id)->exists();
-
-        if ($isAlreadyMember) {
-            // Update invitation status but don't add again
-            $invitation->update(['status' => 'accepted']);
-            return response()->json([
-                'message' => 'You are already a member of this project',
-                'project' => $project,
-                'role' => $project->teamMembers()->where('team_member_id', $teamMember->id)->first()->pivot->role
-            ]);
-        }
-
         // Add user to project with the role from the invitation
+        $project = Project::findOrFail($invitation->project_id);
         $project->teamMembers()->attach($teamMember->id, ['role' => $invitation->role]);
 
         // Update invitation status
@@ -371,10 +366,12 @@ class ProjectController extends Controller
     }
 
     /**
-     * Invite users to a project with specific roles - NOUVELLE VERSION CORRIGÉE
+     * Invite users to a project with specific roles
      */
     public function inviteUsers(Request $request, $id)
     {
+        
+
         $validator = Validator::make($request->all(), [
             'invitations' => 'required|array',
             'invitations.*.email' => 'required|email',
@@ -397,45 +394,25 @@ class ProjectController extends Controller
                 $email = $invitation['email'];
                 $role = $invitation['permission'];
 
-                // Vérifier si l'utilisateur est déjà membre du projet
+                // Check if the member already exists
                 $existingMember = TeamMember::where('email', $email)->first();
+
                 if ($existingMember) {
-                    $isAlreadyMember = $project->teamMembers()->where('team_member_id', $existingMember->id)->exists();
-                    if ($isAlreadyMember) {
-                        continue; // Skip if already a member
+                    // Check if already a member of this project
+                    $isMember = $project->teamMembers()->where('team_member_id', $existingMember->id)->exists();
+
+                    if ($isMember) {
+                        // Update role if already a member
+                        $project->teamMembers()->updateExistingPivot($existingMember->id, ['role' => $role]);
+                    } else {
+                        // Add as a team member with specified role
+                        $project->teamMembers()->attach($existingMember->id, ['role' => $role]);
                     }
-                }
 
-                // Vérifier s'il y a déjà une invitation en attente pour cet email
-                $existingInvitation = InvitedMember::where('project_id', $project->id)
-                    ->where('email', $email)
-                    ->where('status', 'pending')
-                    ->first();
-
-                if ($existingInvitation) {
-                    // Mettre à jour l'invitation existante
-                    $invitationToken = Str::random(32);
-                    $existingInvitation->update([
-                        'role' => $role,
-                        'invitation_token' => $invitationToken
-                    ]);
-                } else {
-                    // Créer une nouvelle invitation
-                    $invitationToken = Str::random(32);
-                    InvitedMember::create([
-                        'project_id' => $project->id,
-                        'email' => $email,
-                        'status' => 'pending',
-                        'invitation_token' => $invitationToken,
-                        'role' => $role,
-                    ]);
-                }
-
-                // Envoyer l'email d'invitation
-                $this->sendInvitationEmail($project, $email, $invitationToken, $role);
-
-                // Créer une notification pour les utilisateurs existants
-                if ($existingMember) {
+                    // Send notification email to existing member
+                    $this->sendInvitationEmail($project, $email, null, $role);
+                    
+                    // Create notification for the invited member
                     $this->createNotification(
                         $existingMember->id,
                         $inviter->id,
@@ -451,9 +428,39 @@ class ProjectController extends Controller
                         'App\Models\Project',
                         $project->id
                     );
-                }
+                    
+                    $invitationsSent++;
+                } else {
+                    // Generate invitation token
+                    $invitationToken = Str::random(32);
 
-                $invitationsSent++;
+                    // Check if there's already a pending invitation
+                    $existingInvitation = InvitedMember::where('project_id', $project->id)
+                        ->where('email', $email)
+                        ->where('status', 'pending')
+                        ->first();
+
+                    if ($existingInvitation) {
+                        // Update existing invitation
+                        $existingInvitation->update([
+                            'role' => $role,
+                            'invitation_token' => $invitationToken
+                        ]);
+                    } else {
+                        // Create new invitation
+                        InvitedMember::create([
+                            'project_id' => $project->id,
+                            'email' => $email,
+                            'status' => 'pending',
+                            'invitation_token' => $invitationToken,
+                            'role' => $role,
+                        ]);
+                    }
+
+                    // Send invitation email
+                    $this->sendInvitationEmail($project, $email, $invitationToken, $role);
+                    $invitationsSent++;
+                }
             }
 
             return response()->json([
@@ -465,6 +472,9 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Error sending invitations: ' . $e->getMessage()], 500);
         }
     }
+
+    // Add a new method to update member permissions
+    // Add this method after the inviteUsers method
 
     /**
      * Update a team member's permission in a project
@@ -529,6 +539,8 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Error updating member permission: ' . $e->getMessage()], 500);
         }
     }
+
+    // Add this method after the updateMemberPermission method
 
     /**
      * Remove a team member from a project.
