@@ -156,7 +156,7 @@ class ProjectController extends Controller
     {
         try {
             // Create join link (with token if provided)
-            $baseUrl = config('app.frontend_url', 'frontend-production-46b5.up.railway.app');
+            $baseUrl ='frontend-production-46b5.up.railway.app';
             $joinLink = $baseUrl . '/projects/' . $project->id;
 
             if ($invitationToken) {
