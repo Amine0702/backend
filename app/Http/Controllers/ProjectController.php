@@ -18,8 +18,8 @@ use App\Mail\ProjectInvitationMail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Auth;
-use App\Mail\InvitationEmail;
+use App\Models\user;
+
 
 class ProjectController extends Controller
 {
@@ -2243,5 +2243,46 @@ class ProjectController extends Controller
                 'totalCompletedTasks' => $totalCompletedTasksAll,
             ]
         ];
+    }
+
+    public function updateMemberRole(Request $request, $projectId, $memberId)
+    {
+        $request->validate([
+            'role' => 'required|in:observer,member,manager',
+        ]);
+
+        $project = Project::whereHas('teamMembers', function ($query) {
+            $query->where('user_id', auth())
+                  ->whereIn('role', ['owner', 'admin']);
+        })->findOrFail($projectId);
+
+        $memberToUpdate = TeamMember::where('project_id', $projectId)
+            ->where('user_id', $memberId)
+            ->firstOrFail();
+
+        // Prevent changing the owner's role
+        if ($memberToUpdate->role === 'owner') {
+            return response()->json(['message' => 'Cannot change project owner role'], 400);
+        }
+
+        // Update the role
+        $memberToUpdate->update(['role' => $request->role]);
+
+        // Optional: Send notification email about role change
+        try {
+            $user = User::find($memberId);
+            if ($user) {
+                // You can implement email notification here
+                // Mail::to($user->email)->send(new RoleUpdatedMail($project, $user, $request->role));
+            }
+        } catch (\Exception $e) {
+            // Log error but don't fail the request
+            Log::error('Failed to send role update notification: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'message' => 'Member role updated successfully',
+            'member' => $memberToUpdate->load('user')
+        ]);
     }
 }
