@@ -500,7 +500,7 @@ class ProjectController extends Controller
     }
 
     /**
-     * Update a team member's permission in a project
+     * FIXED: Update a team member's permission in a project
      */
     public function updateMemberPermission(Request $request, $projectId, $memberId)
     {
@@ -554,7 +554,7 @@ class ProjectController extends Controller
 
             return response()->json([
                 'message' => 'Permission mise à jour avec succès',
-                'member' => $teamMember,
+                'member' => $teamMember->load('projects'),
                 'role' => $request->role
             ]);
         } catch (\Exception $e) {
@@ -562,7 +562,6 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Error updating member permission: ' . $e->getMessage()], 500);
         }
     }
-
     /**
      * Remove a team member from a project.
      */
