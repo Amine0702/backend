@@ -15,6 +15,7 @@ class InvitedMember extends Model
         'project_id',
         'status',
         'invitation_token',
+        'role', // Ajout du champ role
     ];
 
     /**
