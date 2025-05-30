@@ -2246,42 +2246,80 @@ class ProjectController extends Controller
 
     public function updateMemberRole(Request $request, $projectId, $memberId)
     {
-        $request->validate([
+        // Validate the request
+        $validator = Validator::make($request->all(), [
             'role' => 'required|in:observer,member,manager',
         ]);
 
-        $project = Project::whereHas('teamMembers', function ($query) {
-            $query->where('user_id', auth())
-                  ->whereIn('role', ['owner', 'admin']);
-        })->findOrFail($projectId);
-
-        $memberToUpdate = TeamMember::where('project_id', $projectId)
-            ->where('user_id', $memberId)
-            ->firstOrFail();
-
-        // Prevent changing the owner's role
-        if ($memberToUpdate->role === 'owner') {
-            return response()->json(['message' => 'Cannot change project owner role'], 400);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Update the role
-        $memberToUpdate->update(['role' => $request->role]);
-
-        // Optional: Send notification email about role change
         try {
-            $user = User::find($memberId);
-            if ($user) {
-                // You can implement email notification here
-                // Mail::to($user->email)->send(new RoleUpdatedMail($project, $user, $request->role));
+            // Verify if the user is a manager of the project
+            $clerkUserId = $request->header('X-Clerk-User-Id');
+            if (!$this->checkProjectPermission($projectId, $clerkUserId, 'manager')) {
+                return response()->json(['message' => 'Seuls les managers peuvent modifier les rôles'], 403);
             }
-        } catch (\Exception $e) {
-            // Log error but don't fail the request
-            Log::error('Failed to send role update notification: ' . $e->getMessage());
-        }
 
-        return response()->json([
-            'message' => 'Member role updated successfully',
-            'member' => $memberToUpdate->load('user')
-        ]);
+            // Find the project and team member
+            $project = Project::findOrFail($projectId);
+            $teamMember = TeamMember::findOrFail($memberId);
+            $updater = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+
+            // Check if the member is part of the project
+            $isMember = $project->teamMembers()->where('team_member_id', $teamMember->id)->exists();
+            if (!$isMember) {
+                return response()->json(['message' => 'Ce membre ne fait pas partie du projet'], 404);
+            }
+
+            // Get current role before updating
+            $currentRole = $project->teamMembers()
+                ->where('team_member_id', $teamMember->id)
+                ->first()->pivot->role;
+
+            // Check if trying to change the role of the last manager
+            if ($currentRole === 'manager' && $request->role !== 'manager') {
+                $managersCount = $project->teamMembers()
+                    ->wherePivot('role', 'manager')
+                    ->count();
+                
+                if ($managersCount <= 1) {
+                    return response()->json(['message' => 'Impossible de modifier le rôle du dernier manager du projet'], 400);
+                }
+            }
+
+            // Update the role
+            $project->teamMembers()->updateExistingPivot($teamMember->id, ['role' => $request->role]);
+
+            // Send notification email
+            $this->sendInvitationEmail($project, $teamMember->email, null, $request->role);
+            
+            // Create notification for the member
+            $this->createNotification(
+                $teamMember->id,
+                $updater->id,
+                'role_updated',
+                'Rôle mis à jour',
+                "Votre rôle dans le projet {$project->name} a été modifié en {$request->role}",
+                [
+                    'project_id' => $project->id,
+                    'project_name' => $project->name,
+                    'updater_name' => $updater->name,
+                    'new_role' => $request->role
+                ],
+                'App\Models\Project',
+                $project->id
+            );
+
+            return response()->json([
+                'message' => 'Rôle mis à jour avec succès',
+                'member' => $teamMember,
+                'role' => $request->role
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating member role: ' . $e->getMessage());
+            return response()->json(['message' => 'Error updating member role: ' . $e->getMessage()], 500);
+        }
     }
 }
