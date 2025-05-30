@@ -334,7 +334,7 @@ class UserController extends Controller
         ]);
 
         // Create join link
-        $baseUrl = 'https://frontend-production-46b5.up.railway.app/';
+        $baseUrl = config('app.frontend_url', 'http://localhost:3000');
         $joinLink = $baseUrl . '/sign-in?token=' . $invitationToken;
 
         // Send invitation email

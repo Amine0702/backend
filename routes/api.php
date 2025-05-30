@@ -59,7 +59,6 @@ Route::delete('/projects/{projectId}/members/{memberId}', [ProjectController::cl
 Route::get('/projects/{projectId}/check-permission', [ProjectController::class, 'checkUserProjectPermission']);
 Route::put('/projects/{projectId}/members/{memberId}/permission', [ProjectController::class, 'updateMemberPermission']);
 Route::get('/activities/recent', [ProjectController::class, 'getRecentActivities']);
-Route::put('projects/{id}/members/{memberId}/role', [ProjectController::class, 'updateMemberRole']);
 
 // Report routes
 Route::post('/projects/reports/generate', [ProjectController::class, 'generateReport']);
