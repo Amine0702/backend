@@ -8,6 +8,7 @@ use App\Models\Comment;
 use App\Models\Attachment;
 use App\Models\TeamMember;
 use App\Models\Notification;
+use App\Models\Column;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -890,37 +891,71 @@ class TaskController extends Controller
     /**
      * Download an attachment.
      */
-    public function downloadAttachment(int $attachmentId)
+    public function downloadAttachment(Request $request, $id)
     {
         try {
-            $attachment = Attachment::findOrFail($attachmentId);
-            
-            // Vérifier si l'utilisateur a accès à cette pièce jointe via la tâche
-            $clerkUserId = request()->header('X-Clerk-User-Id');
+            Log::info("Tentative de téléchargement de l'attachment ID: " . $id);
+        
+            $attachment = Attachment::findOrFail($id);
+            Log::info("Attachment trouvé: " . $attachment->name);
+        
+            $task = Task::findOrFail($attachment->task_id);
+        
+            // Récupérer la colonne pour obtenir l'ID du projet
+            $column = Column::findOrFail($task->column_id);
+            $projectId = $column->project_id;
+
+            // Vérifier les permissions de l'utilisateur
+            $clerkUserId = $request->header('X-Clerk-User-Id');
+            Log::info("Clerk User ID: " . $clerkUserId);
+        
             if (!$clerkUserId) {
-                return response()->json(['message' => 'Utilisateur non authentifié'], 401);
+                return response()->json(['message' => 'User ID header missing'], 401);
+            }
+        
+            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)
+                ->whereHas('projects', function ($query) use ($projectId) {
+                    $query->where('projects.id', $projectId);
+                })
+                ->first();
+
+            if (!$teamMember) {
+                Log::error("Team member not found for user: " . $clerkUserId);
+                return response()->json(['message' => 'Unauthorized - User not found in project'], 403);
             }
 
-            // Vérifier les permissions sur la tâche
-            if (!$this->checkTaskPermission($attachment->task_id, $clerkUserId)) {
-                return response()->json(['message' => 'Vous n\'avez pas la permission d\'accéder à cette pièce jointe'], 403);
-            }
-
-            // Construire le chemin complet du fichier
-            $filePath = str_replace('/storage/', '', $attachment->url);
-            $fullPath = storage_path('app/public/' . $filePath);
-
+            // Construire le chemin du fichier
+            $filePath = 'attachments/' . $attachment->file_path;
+            Log::info("Chemin du fichier: " . $filePath);
+        
             // Vérifier si le fichier existe
-            if (!file_exists($fullPath)) {
-                return response()->json(['message' => 'Fichier non trouvé'], 404);
+            if (!Storage::exists($filePath)) {
+                Log::error("File not found at path: " . $filePath);
+                return response()->json(['message' => 'File not found on server'], 404);
             }
 
-            // Retourner le fichier en téléchargement
-            return response()->download($fullPath, $attachment->name);
+            // Obtenir le contenu du fichier
+            $fileContent = Storage::get($filePath);
+            $fileSize = Storage::size($filePath);
+        
+            Log::info("Fichier trouvé, taille: " . $fileSize . " bytes");
+
+            // Retourner le fichier avec les bons headers
+            return response($fileContent)
+                ->header('Content-Type', $attachment->file_type ?? 'application/octet-stream')
+                ->header('Content-Disposition', 'attachment; filename="' . $attachment->name . '"')
+                ->header('Content-Length', $fileSize)
+                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
+                ->header('Pragma', 'no-cache')
+                ->header('Expires', '0');
             
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::error('Attachment not found: ' . $e->getMessage());
+            return response()->json(['message' => 'Attachment not found'], 404);
         } catch (\Exception $e) {
             Log::error('Error downloading attachment: ' . $e->getMessage());
-            return response()->json(['message' => 'Erreur lors du téléchargement: ' . $e->getMessage()], 500);
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            return response()->json(['message' => 'Error downloading attachment', 'error' => $e->getMessage()], 500);
         }
     }
 

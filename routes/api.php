@@ -61,7 +61,6 @@ Route::put('/projects/{projectId}/members/{memberId}/permission', [ProjectContro
 Route::get('/activities/recent', [ProjectController::class, 'getRecentActivities']);
 Route::put('/projects/{projectId}/members/{memberId}/role', [ProjectController::class, 'updateMemberRole']);
 Route::get('/attachments/{id}/download', [TaskController::class, 'downloadAttachment']);
-
 // Report routes
 Route::post('/projects/reports/generate', [ProjectController::class, 'generateReport']);
 Route::post('/projects/{id}/reports/generate', [ProjectController::class, 'generateReport']);
