@@ -60,6 +60,7 @@ Route::get('/projects/{projectId}/check-permission', [ProjectController::class, 
 Route::put('/projects/{projectId}/members/{memberId}/permission', [ProjectController::class, 'updateMemberPermission']);
 Route::get('/activities/recent', [ProjectController::class, 'getRecentActivities']);
 Route::put('/projects/{projectId}/members/{memberId}/role', [ProjectController::class, 'updateMemberRole']);
+Route::get('/{id}/download', [TaskController::class, 'downloadAttachment']);
 
 // Report routes
 Route::post('/projects/reports/generate', [ProjectController::class, 'generateReport']);
