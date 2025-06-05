@@ -821,7 +821,9 @@ class TaskController extends Controller
             }
 
             $path = $file->store('attachments', 'public');
-            $url = Storage::url($path);
+            
+            // Construire l'URL complète pour l'accès
+            $url = '/storage/' . $path;
 
             $attachment = Attachment::create([
                 'task_id' => $task->id,
@@ -880,7 +882,45 @@ class TaskController extends Controller
                 'attachment' => $attachment,
             ], 201);
         } catch (\Exception $e) {
+            Log::error('Error uploading file: ' . $e->getMessage());
             return response()->json(['message' => 'Error uploading file: ' . $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Download an attachment.
+     */
+    public function downloadAttachment(int $attachmentId)
+    {
+        try {
+            $attachment = Attachment::findOrFail($attachmentId);
+            
+            // Vérifier si l'utilisateur a accès à cette pièce jointe via la tâche
+            $clerkUserId = request()->header('X-Clerk-User-Id');
+            if (!$clerkUserId) {
+                return response()->json(['message' => 'Utilisateur non authentifié'], 401);
+            }
+
+            // Vérifier les permissions sur la tâche
+            if (!$this->checkTaskPermission($attachment->task_id, $clerkUserId)) {
+                return response()->json(['message' => 'Vous n\'avez pas la permission d\'accéder à cette pièce jointe'], 403);
+            }
+
+            // Construire le chemin complet du fichier
+            $filePath = str_replace('/storage/', '', $attachment->url);
+            $fullPath = storage_path('app/public/' . $filePath);
+
+            // Vérifier si le fichier existe
+            if (!file_exists($fullPath)) {
+                return response()->json(['message' => 'Fichier non trouvé'], 404);
+            }
+
+            // Retourner le fichier en téléchargement
+            return response()->download($fullPath, $attachment->name);
+            
+        } catch (\Exception $e) {
+            Log::error('Error downloading attachment: ' . $e->getMessage());
+            return response()->json(['message' => 'Erreur lors du téléchargement: ' . $e->getMessage()], 500);
         }
     }
 
