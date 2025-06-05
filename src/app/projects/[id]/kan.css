@@ -1,0 +1,259 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 210 10% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 210 10% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 10% 15%;
+
+    --primary: 270 70% 45%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 30% 96%;
+    --secondary-foreground: 210 10% 15%;
+
+    --muted: 270 30% 96%;
+    --muted-foreground: 210 5% 45%;
+
+    --accent: 270 30% 96%;
+    --accent-foreground: 210 10% 15%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 270 70% 50%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 210 20% 8%;
+    --foreground: 210 10% 90%;
+
+    --card: 210 20% 12%;
+    --card-foreground: 210 10% 90%;
+
+    --popover: 210 20% 12%;
+    --popover-foreground: 210 10% 90%;
+
+    --primary: 270 70% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 270 30% 15%;
+    --secondary-foreground: 210 10% 90%;
+
+    --muted: 270 30% 15%;
+    --muted-foreground: 210 5% 65%;
+
+    --accent: 270 30% 15%;
+    --accent-foreground: 210 10% 90%;
+
+    --destructive: 0 84.2% 50.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 20%;
+    --input: 210 20% 20%;
+    --ring: 270 70% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Classes personnalisées pour notre application Kanban */
+  .task-card {
+    @apply relative cursor-grab rounded-lg border-l-4 border-l-transparent bg-white p-4 shadow-md transition-shadow duration-200 hover:border-l-violet-500 hover:shadow-lg active:cursor-grabbing;
+  }
+
+  .gradient-soft {
+    @apply bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-900/20 dark:to-indigo-900/20;
+  }
+
+  .glass-effect {
+    @apply bg-white/70 backdrop-blur-sm dark:bg-gray-800/70;
+  }
+
+  .kanban-column {
+    @apply overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shadow-md transition-all duration-200 hover:shadow-lg dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .kanban-column-header {
+    @apply flex items-center justify-between px-4 py-3 font-semibold text-gray-800 dark:text-gray-200;
+    position: relative;
+  }
+
+  /* Ajouter un indicateur visuel pour montrer que l'en-tête est draggable */
+  .kanban-column-header[draggable="true"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(to right, #8b5cf6, #6366f1);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .kanban-column-header[draggable="true"]:hover::before {
+    opacity: 1;
+  }
+
+  .kanban-column-body {
+    @apply max-h-[calc(100vh-260px)] overflow-y-auto rounded-b-lg bg-white/80 p-3 backdrop-blur-sm backdrop-filter dark:bg-gray-800/80;
+  }
+
+  /* Style discret pour la scrollbar */
+  .scrollbar-none::-webkit-scrollbar {
+    width: 3px;
+  }
+
+  .scrollbar-none::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-none::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gray-300/30 dark:bg-gray-600/30;
+  }
+
+  .scrollbar-none::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400/50 dark:bg-gray-500/50;
+  }
+
+  .kanban-column-add-btn {
+    @apply rounded-full bg-violet-400 p-1.5 text-white shadow-sm transition-colors hover:bg-violet-500 dark:bg-violet-600 dark:hover:bg-violet-700;
+  }
+
+  .kanban-column-empty {
+    @apply rounded-lg border-2 border-dashed border-gray-200 bg-gray-50/50 p-5 text-center font-medium text-gray-400 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:bg-gray-700/50;
+  }
+
+  .task-drag-container {
+    @apply transform cursor-grab transition-transform active:scale-95 active:cursor-grabbing;
+  }
+
+  .task-timer {
+    @apply z-10 flex items-center rounded-bl-lg rounded-tr-md bg-gradient-to-r from-violet-600 to-violet-500 px-2 py-1 text-xs font-medium text-white shadow-sm dark:from-violet-700 dark:to-violet-800;
+  }
+
+  /* Animations */
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  .animate-bounce {
+    animation: bounce 1s infinite;
+  }
+
+  @keyframes bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  /* Formulaires */
+  .form-input {
+    @apply w-full rounded-md border border-gray-300 p-2 transition-all focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200;
+  }
+
+  .form-button {
+    @apply rounded-md px-4 py-2 transition-colors focus:outline-none;
+  }
+
+  .primary-button {
+    @apply form-button bg-violet-500 text-white shadow-sm hover:bg-violet-600 dark:bg-violet-600 dark:hover:bg-violet-700;
+  }
+
+  .secondary-button {
+    @apply form-button bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
+  }
+
+  .danger-button {
+    @apply form-button bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm;
+  }
+
+  .modal-content {
+    @apply max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-lg bg-white shadow-xl dark:bg-gray-800;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between border-b bg-violet-50 p-4 dark:border-gray-600 dark:bg-gray-700;
+  }
+
+  .modal-body {
+    @apply overflow-y-auto p-4 dark:text-gray-200;
+  }
+
+  .modal-footer {
+    @apply flex justify-end space-x-2 border-t bg-gray-50 p-4 dark:border-gray-600 dark:bg-gray-700;
+  }
+
+  /* Badges */
+  .status-badge {
+    @apply rounded-full px-2 py-1 text-xs font-medium;
+  }
+
+  /* Avatars */
+  .avatar {
+    @apply h-8 w-8 overflow-hidden rounded-full border-2 border-white dark:border-gray-700;
+  }
+
+  .avatar-sm {
+    @apply h-6 w-6 overflow-hidden rounded-full border-2 border-white dark:border-gray-700;
+  }
+
+  /* Tags */
+  .tag {
+    @apply whitespace-nowrap rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700 dark:bg-violet-900/30 dark:text-violet-300;
+  }
+
+  /* Permissions buttons */
+  .permission-option {
+    @apply flex items-center rounded-md border p-3 transition-colors hover:bg-violet-50 dark:border-gray-600 dark:hover:bg-violet-900/30;
+  }
+
+  .permission-option.active {
+    @apply border-violet-500 bg-violet-50 dark:bg-violet-900/30;
+  }
+
+  /* Projet details */
+  .project-meta {
+    @apply flex items-center text-sm text-gray-500 dark:text-gray-400;
+  }
+
+  .project-meta-item {
+    @apply mr-4 flex items-center;
+  }
+}

@@ -1,0 +1,263 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 263 60% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 256 34% 92%;
+    --secondary-foreground: 260 54% 30%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 253 63% 95%;
+    --accent-foreground: 262 83% 58%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 263 60% 50%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 263 60% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 258 51% 28%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 263 60% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+  }
+
+  .hover-lift {
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .dark .hover-lift:hover {
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.25),
+      0 10px 10px -5px rgba(0, 0, 0, 0.1);
+  }
+
+  .gradient-border {
+    position: relative;
+    background:
+      linear-gradient(white, white) padding-box,
+      linear-gradient(135deg, #8b5cf6, #3b82f6) border-box;
+    border: 2px solid transparent;
+  }
+
+  .dark .gradient-border {
+    background:
+      linear-gradient(rgb(17 24 39), rgb(17 24 39)) padding-box,
+      linear-gradient(135deg, #8b5cf6, #3b82f6) border-box;
+  }
+
+  /* Styles améliorés pour les barres de progression */
+  .progress-bar {
+    @apply relative overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700;
+    transition: all 0.3s ease;
+  }
+
+  .progress-bar-fill {
+    @apply h-full rounded-full bg-gradient-to-r from-violet-500 to-purple-500 transition-all duration-500 ease-out;
+    transform-origin: left;
+  }
+
+  .progress-bar:hover {
+    @apply shadow-sm;
+  }
+
+  .progress-bar-fill:hover {
+    @apply from-violet-600 to-purple-600;
+  }
+
+  /* Styles pour les graphiques de performance */
+  .performance-bar {
+    @apply rounded-t-md transition-all duration-300 hover:opacity-90;
+    background: linear-gradient(to top, #4f46e5, #6366f1);
+  }
+
+  .performance-bar-previous {
+    @apply rounded-t-md transition-all duration-300;
+    background: linear-gradient(to top, #9ca3af, #d1d5db);
+  }
+
+  .dark .performance-bar-previous {
+    background: linear-gradient(to top, #6b7280, #9ca3af);
+  }
+
+  /* Animation pour les barres de progression */
+  @keyframes progressFill {
+    from {
+      width: 0%;
+    }
+    to {
+      width: var(--progress-width);
+    }
+  }
+
+  .progress-animated .progress-bar-fill {
+    animation: progressFill 1s ease-out;
+  }
+
+  /* Styles pour les badges de statut */
+  .status-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-colors;
+  }
+
+  .status-completed {
+    @apply bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400;
+  }
+
+  .status-in-progress {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400;
+  }
+
+  .status-review {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400;
+  }
+
+  .status-todo {
+    @apply bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400;
+  }
+
+  .status-default {
+    @apply bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300;
+  }
+
+  /* Amélioration des cartes */
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .dark .card-hover:hover {
+    @apply shadow-2xl shadow-black/20;
+  }
+
+  /* Styles pour les métriques */
+  .metric-card {
+    @apply relative overflow-hidden rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-md dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .metric-icon {
+    @apply flex h-12 w-12 items-center justify-center rounded-lg;
+  }
+
+  .metric-value {
+    @apply text-2xl font-bold text-gray-900 dark:text-white;
+  }
+
+  .metric-label {
+    @apply text-sm text-gray-500 dark:text-gray-400;
+  }
+
+  .metric-change {
+    @apply text-xs font-medium;
+  }
+
+  .metric-change.positive {
+    @apply text-green-600 dark:text-green-400;
+  }
+
+  .metric-change.negative {
+    @apply text-red-600 dark:text-red-400;
+  }
+
+  .metric-change.neutral {
+    @apply text-gray-600 dark:text-gray-400;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar personnalisé */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+/* Animation pour les boutons */
+button {
+  transition: all 0.2s ease;
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
