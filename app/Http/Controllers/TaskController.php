@@ -917,10 +917,10 @@ class TaskController extends Controller
             Log::info("Attachment trouvé:", [
                 'id' => $attachment->id,
                 'name' => $attachment->name,
-                'url' => $attachment->url,
-                'file_path' => $attachment->file_path ?? 'non défini',
+                'url' => $attachment->url ?? 'non définie',
+                'file_path' => $attachment->file_path ?? 'non définie',
                 'size' => $attachment->size,
-                'type' => $attachment->type
+                'type' => $attachment->type ?? 'non définie'
             ]);
         
             $task = Task::findOrFail($attachment->task_id);
@@ -951,85 +951,92 @@ class TaskController extends Controller
                 return response()->json(['message' => 'Unauthorized - User not found in project'], 403);
             }
             
-            Log::info("Team member trouvé: " . $teamMember->name . " (role: " . $teamMember->role . ")");
+            Log::info("Team member trouvé: " . $teamMember->name);
 
-            // Déterminer le chemin du fichier
+            // CORRECTION PRINCIPALE : Logique simplifiée pour trouver le fichier
             $filePath = null;
+            $usePublicDisk = false;
             
-            // Si nous avons une URL stockée (nouveau format)
-            if ($attachment->url) {
-                // Extraire le chemin relatif de l'URL
+            // Méthode 1: Si nous avons file_path, essayer dans le disque public d'abord
+            if ($attachment->file_path) {
+                $publicPath = 'attachments/' . $attachment->file_path;
+                Log::info("Vérification dans le disque public: " . $publicPath);
+                
+                if (Storage::disk('public')->exists($publicPath)) {
+                    $filePath = $publicPath;
+                    $usePublicDisk = true;
+                    Log::info("Fichier trouvé dans le disque public: " . $filePath);
+                }
+            }
+            
+            // Méthode 2: Si nous avons une URL, extraire le chemin
+            if (!$filePath && $attachment->url) {
                 $urlPath = parse_url($attachment->url, PHP_URL_PATH);
                 if (strpos($urlPath, '/storage/') === 0) {
                     $relativePath = substr($urlPath, 9); // Enlever '/storage/'
-                    Log::info("Chemin relatif extrait de l'URL: " . $relativePath);
+                    Log::info("Chemin extrait de l'URL: " . $relativePath);
                     
-                    // Vérifier si le fichier existe dans le stockage public
                     if (Storage::disk('public')->exists($relativePath)) {
                         $filePath = $relativePath;
-                        Log::info("Fichier trouvé dans le stockage public: " . $filePath);
+                        $usePublicDisk = true;
+                        Log::info("Fichier trouvé via URL dans le disque public: " . $filePath);
                     }
                 }
             }
             
-            // Si nous avons un file_path stocké (ancien format)
+            // Méthode 3: Essayer dans le disque par défaut (fallback)
             if (!$filePath && $attachment->file_path) {
-                $possiblePaths = [
-                    'attachments/' . $attachment->file_path,
-                    $attachment->file_path,
-                    'public/attachments/' . $attachment->file_path
-                ];
+                $defaultPath = 'attachments/' . $attachment->file_path;
+                Log::info("Vérification dans le disque par défaut: " . $defaultPath);
                 
-                foreach ($possiblePaths as $path) {
-                    Log::info("Vérification du chemin: " . $path);
-                    if (Storage::exists($path)) {
-                        $filePath = $path;
-                        Log::info("Fichier trouvé à: " . $path);
-                        break;
-                    }
-                    
-                    // Vérifier aussi dans le disque public
-                    if (Storage::disk('public')->exists($path)) {
-                        $filePath = $path;
-                        Log::info("Fichier trouvé dans le disque public à: " . $path);
-                        $usePublicDisk = true;
-                        break;
-                    }
+                if (Storage::exists($defaultPath)) {
+                    $filePath = $defaultPath;
+                    $usePublicDisk = false;
+                    Log::info("Fichier trouvé dans le disque par défaut: " . $filePath);
                 }
             }
             
             if (!$filePath) {
-                Log::error("Fichier non trouvé. URL: " . ($attachment->url ?? 'non définie') . ", file_path: " . ($attachment->file_path ?? 'non défini'));
+                Log::error("Fichier non trouvé après toutes les tentatives");
                 
-                // Lister les fichiers dans les répertoires pour debug
-                $attachmentFiles = Storage::files('attachments');
-                $publicAttachmentFiles = Storage::disk('public')->files('attachments');
+                // Debug: Lister les fichiers disponibles
+                $publicFiles = Storage::disk('public')->files('attachments');
+                $defaultFiles = Storage::files('attachments');
                 
-                Log::info("Fichiers dans le répertoire attachments:", $attachmentFiles);
-                Log::info("Fichiers dans le répertoire public/attachments:", $publicAttachmentFiles);
+                Log::info("Fichiers dans public/attachments:", $publicFiles);
+                Log::info("Fichiers dans attachments:", $defaultFiles);
                 
                 return response()->json(['message' => 'File not found on server'], 404);
             }
 
             // Obtenir le contenu du fichier
-            $fileContent = isset($usePublicDisk) && $usePublicDisk 
-                ? Storage::disk('public')->get($filePath) 
-                : Storage::get($filePath);
-                
-            $fileSize = isset($usePublicDisk) && $usePublicDisk 
-                ? Storage::disk('public')->size($filePath) 
-                : Storage::size($filePath);
+            if ($usePublicDisk) {
+                $fileContent = Storage::disk('public')->get($filePath);
+                $fileSize = Storage::disk('public')->size($filePath);
+            } else {
+                $fileContent = Storage::get($filePath);
+                $fileSize = Storage::size($filePath);
+            }
         
             Log::info("Fichier lu avec succès, taille: " . $fileSize . " bytes");
 
+            // Déterminer le type MIME
+            $mimeType = $attachment->type ?? 'application/octet-stream';
+            
+            // Nettoyer le nom du fichier pour éviter les problèmes d'encodage
+            $fileName = preg_replace('/[^\w\-_\.]/', '_', $attachment->name);
+
             // Retourner le fichier avec les bons headers
             return response($fileContent)
-                ->header('Content-Type', $attachment->type ?? 'application/octet-stream')
-                ->header('Content-Disposition', 'attachment; filename="' . $attachment->name . '"')
+                ->header('Content-Type', $mimeType)
+                ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"')
                 ->header('Content-Length', $fileSize)
                 ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
                 ->header('Pragma', 'no-cache')
-                ->header('Expires', '0');
+                ->header('Expires', '0')
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET')
+                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Clerk-User-Id');
             
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             Log::error('Attachment not found: ' . $e->getMessage());
