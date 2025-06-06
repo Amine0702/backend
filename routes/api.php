@@ -59,8 +59,6 @@ Route::delete('/projects/{projectId}/members/{memberId}', [ProjectController::cl
 Route::get('/projects/{projectId}/check-permission', [ProjectController::class, 'checkUserProjectPermission']);
 Route::put('/projects/{projectId}/members/{memberId}/permission', [ProjectController::class, 'updateMemberPermission']);
 Route::get('/activities/recent', [ProjectController::class, 'getRecentActivities']);
-Route::put('/projects/{projectId}/members/{memberId}/role', [ProjectController::class, 'updateMemberRole']);
-Route::get('/attachments/{id}/download', [TaskController::class, 'downloadAttachment']);
 
 // Report routes
 Route::post('/projects/reports/generate', [ProjectController::class, 'generateReport']);
@@ -141,9 +139,3 @@ Route::get('/users/{id}/details', [UserController::class, 'getUserDetailsById'])
 // Route pour récupérer les statistiques de projets par mois
 Route::get('/projects/stats/monthly', [ProjectController::class, 'getProjectStatsByMonth']);
 Route::get('/projects/{id}/task-analysis', [ProjectController::class, 'getProjectTaskAnalysis']);
-
-
-
-
-
-

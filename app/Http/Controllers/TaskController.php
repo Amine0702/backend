@@ -8,7 +8,6 @@ use App\Models\Comment;
 use App\Models\Attachment;
 use App\Models\TeamMember;
 use App\Models\Notification;
-use App\Models\Column;
 use App\Models\Project;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -90,93 +89,14 @@ class TaskController extends Controller
         try {
             $task = Task::findOrFail($taskId);
         
-            // Récupérer la colonne et le projet associés
-            $column = $task->column;
-            $project = $column->project;
-            
-            // Récupérer le membre d'équipe
-            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
-            
-            if (!$teamMember) {
-                return response()->json([
-                    'canView' => false,
-                    'canEdit' => false,
-                    'canDelete' => false,
-                    'canAddComment' => false,
-                    'canAddAttachment' => false,
-                    'canToggleTimer' => false,
-                    'message' => 'Utilisateur non trouvé'
-                ]);
-            }
-            
-            // Vérifier si l'utilisateur est membre du projet
-            $projectMember = $project->teamMembers()
-                ->where('team_member_id', $teamMember->id)
-                ->first();
-            
-            if (!$projectMember) {
-                return response()->json([
-                    'canView' => false,
-                    'canEdit' => false,
-                    'canDelete' => false,
-                    'canAddComment' => false,
-                    'canAddAttachment' => false,
-                    'canToggleTimer' => false,
-                    'message' => 'Utilisateur non membre du projet'
-                ]);
-            }
-            
-            // Déterminer les permissions
-            $role = $projectMember->pivot->role;
-            $isCreator = $task->creator_id === $clerkUserId;
-            $isAssignee = $task->assignee_id === $teamMember->id;
-            
-            $canView = true; // Tous les membres du projet peuvent voir les tâches
-            $canEdit = false;
-            $canDelete = false;
-            $canAddComment = false;
-            $canAddAttachment = false;
-            $canToggleTimer = false;
-            
-            // Vérifier si la tâche a été générée par l'IA
-            $isAIGenerated = false;
-            if (is_array($task->tags)) {
-                $isAIGenerated = in_array('generer_ia', $task->tags) || in_array('généré_par_ia', $task->tags);
-            }
-            
-            // Définir les permissions selon le rôle
-            if ($role === 'manager') {
-                $canEdit = true;
-                $canDelete = true;
-                $canAddComment = true;
-                $canAddAttachment = true;
-                $canToggleTimer = true;
-            } else if ($role === 'member') {
-                $canEdit = $isCreator || $isAssignee || $isAIGenerated;
-                $canDelete = $isCreator;
-                $canAddComment = true;
-                $canAddAttachment = $isCreator || $isAssignee;
-                $canToggleTimer = $isCreator || $isAssignee;
-            }
-            // Les observateurs ne peuvent ni modifier ni supprimer
-            
-            return response()->json([
-                'canView' => $canView,
-                'canEdit' => $canEdit,
-                'canDelete' => $canDelete,
-                'canAddComment' => $canAddComment,
-                'canAddAttachment' => $canAddAttachment,
-                'canToggleTimer' => $canToggleTimer,
-                'role' => $role,
-                'isCreator' => $isCreator,
-                'isAssignee' => $isAssignee,
-                'isAIGenerated' => $isAIGenerated,
-                'teamMemberId' => $teamMember->id,
-                'taskAssigneeId' => $task->assignee_id,
-                'taskCreatorId' => $task->creator_id
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error checking task permission: ' . $e->getMessage());
+        // Récupérer la colonne et le projet associés
+        $column = $task->column;
+        $project = $column->project;
+        
+        // Récupérer le membre d'équipe
+        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+        
+        if (!$teamMember) {
             return response()->json([
                 'canView' => false,
                 'canEdit' => false,
@@ -184,10 +104,89 @@ class TaskController extends Controller
                 'canAddComment' => false,
                 'canAddAttachment' => false,
                 'canToggleTimer' => false,
-                'message' => 'Erreur: ' . $e->getMessage()
-            ], 500);
+                'message' => 'Utilisateur non trouvé'
+            ]);
         }
+        
+        // Vérifier si l'utilisateur est membre du projet
+        $projectMember = $project->teamMembers()
+            ->where('team_member_id', $teamMember->id)
+            ->first();
+        
+        if (!$projectMember) {
+            return response()->json([
+                'canView' => false,
+                'canEdit' => false,
+                'canDelete' => false,
+                'canAddComment' => false,
+                'canAddAttachment' => false,
+                'canToggleTimer' => false,
+                'message' => 'Utilisateur non membre du projet'
+            ]);
+        }
+        
+        // Déterminer les permissions
+        $role = $projectMember->pivot->role;
+        $isCreator = $task->creator_id === $clerkUserId;
+        $isAssignee = $task->assignee_id === $teamMember->id;
+        
+        $canView = true; // Tous les membres du projet peuvent voir les tâches
+        $canEdit = false;
+        $canDelete = false;
+        $canAddComment = false;
+        $canAddAttachment = false;
+        $canToggleTimer = false;
+        
+        // Vérifier si la tâche a été générée par l'IA
+        $isAIGenerated = false;
+        if (is_array($task->tags)) {
+            $isAIGenerated = in_array('generer_ia', $task->tags) || in_array('généré_par_ia', $task->tags);
+        }
+        
+        // Définir les permissions selon le rôle
+        if ($role === 'manager') {
+            $canEdit = true;
+            $canDelete = true;
+            $canAddComment = true;
+            $canAddAttachment = true;
+            $canToggleTimer = true;
+        } else if ($role === 'member') {
+            $canEdit = $isCreator || $isAssignee || $isAIGenerated;
+            $canDelete = $isCreator;
+            $canAddComment = true;
+            $canAddAttachment = $isCreator || $isAssignee;
+            $canToggleTimer = $isCreator || $isAssignee;
+        }
+        // Les observateurs ne peuvent ni modifier ni supprimer
+        
+        return response()->json([
+            'canView' => $canView,
+            'canEdit' => $canEdit,
+            'canDelete' => $canDelete,
+            'canAddComment' => $canAddComment,
+            'canAddAttachment' => $canAddAttachment,
+            'canToggleTimer' => $canToggleTimer,
+            'role' => $role,
+            'isCreator' => $isCreator,
+            'isAssignee' => $isAssignee,
+            'isAIGenerated' => $isAIGenerated,
+            'teamMemberId' => $teamMember->id,
+            'taskAssigneeId' => $task->assignee_id,
+            'taskCreatorId' => $task->creator_id
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error checking task permission: ' . $e->getMessage());
+        return response()->json([
+            'canView' => false,
+            'canEdit' => false,
+            'canDelete' => false,
+            'canAddComment' => false,
+            'canAddAttachment' => false,
+            'canToggleTimer' => false,
+            'message' => 'Erreur: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Create a new task.
@@ -815,39 +814,21 @@ class TaskController extends Controller
 
         try {
             $file = $request->file('file');
-            $originalName = $file->getClientOriginalName();
-            $name = $request->input('name') ?? $originalName;
-            $fileSize = $file->getSize();
-            $fileType = $file->getMimeType();
 
             // Vérifier si le répertoire existe, sinon le créer
             if (!Storage::disk('public')->exists('attachments')) {
                 Storage::disk('public')->makeDirectory('attachments');
             }
 
-            // Générer un nom de fichier unique
-            $fileName = uniqid() . '_' . $originalName;
-            
-            // Stocker le fichier dans le répertoire public/attachments
-            $path = $file->storeAs('attachments', $fileName, 'public');
-            
-            // Construire l'URL complète pour l'accès
-            $url = '/storage/' . $path;
-
-            Log::info("Fichier attaché stocké:", [
-                'original_name' => $originalName,
-                'stored_path' => $path,
-                'public_url' => $url,
-                'file_size' => $fileSize
-            ]);
+            $path = $file->store('attachments', 'public');
+            $url = Storage::url($path);
 
             $attachment = Attachment::create([
                 'task_id' => $task->id,
-                'name' => $name,
-                'type' => $fileType,
+                'name' => $request->name ?? $file->getClientOriginalName(),
+                'type' => $file->getMimeType(),
                 'url' => $url,
-                'size' => $fileSize,
-                'file_path' => $fileName, // Stocker le nom du fichier pour la récupération
+                'size' => $file->getSize(),
             ]);
 
             // Notifier l'assigné et le créateur de la tâche
@@ -899,152 +880,7 @@ class TaskController extends Controller
                 'attachment' => $attachment,
             ], 201);
         } catch (\Exception $e) {
-            Log::error('Error uploading file: ' . $e->getMessage());
             return response()->json(['message' => 'Error uploading file: ' . $e->getMessage()], 500);
-        }
-    }
-
-    /**
-     * Download an attachment.
-     */
-    public function downloadAttachment(Request $request, $id)
-    {
-        try {
-            Log::info("=== DÉBUT TÉLÉCHARGEMENT ATTACHMENT ===");
-            Log::info("Attachment ID demandé: " . $id);
-        
-            $attachment = Attachment::findOrFail($id);
-            Log::info("Attachment trouvé:", [
-                'id' => $attachment->id,
-                'name' => $attachment->name,
-                'url' => $attachment->url ?? 'non définie',
-                'file_path' => $attachment->file_path ?? 'non définie',
-                'size' => $attachment->size,
-                'type' => $attachment->type ?? 'non définie'
-            ]);
-        
-            $task = Task::findOrFail($attachment->task_id);
-            Log::info("Task trouvée: " . $task->id);
-        
-            // Récupérer la colonne pour obtenir l'ID du projet
-            $column = Column::findOrFail($task->column_id);
-            $projectId = $column->project_id;
-            Log::info("Project ID: " . $projectId);
-
-            // Vérifier les permissions de l'utilisateur
-            $clerkUserId = $request->header('X-Clerk-User-Id');
-            Log::info("Clerk User ID: " . $clerkUserId);
-        
-            if (!$clerkUserId) {
-                Log::error("Header X-Clerk-User-Id manquant");
-                return response()->json(['message' => 'User ID header missing'], 401);
-            }
-        
-            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)
-                ->whereHas('projects', function ($query) use ($projectId) {
-                    $query->where('projects.id', $projectId);
-                })
-                ->first();
-
-            if (!$teamMember) {
-                Log::error("Team member not found for user: " . $clerkUserId . " in project: " . $projectId);
-                return response()->json(['message' => 'Unauthorized - User not found in project'], 403);
-            }
-            
-            Log::info("Team member trouvé: " . $teamMember->name);
-
-            // CORRECTION PRINCIPALE : Logique simplifiée pour trouver le fichier
-            $filePath = null;
-            $usePublicDisk = false;
-            
-            // Méthode 1: Si nous avons file_path, essayer dans le disque public d'abord
-            if ($attachment->file_path) {
-                $publicPath = 'attachments/' . $attachment->file_path;
-                Log::info("Vérification dans le disque public: " . $publicPath);
-                
-                if (Storage::disk('public')->exists($publicPath)) {
-                    $filePath = $publicPath;
-                    $usePublicDisk = true;
-                    Log::info("Fichier trouvé dans le disque public: " . $filePath);
-                }
-            }
-            
-            // Méthode 2: Si nous avons une URL, extraire le chemin
-            if (!$filePath && $attachment->url) {
-                $urlPath = parse_url($attachment->url, PHP_URL_PATH);
-                if (strpos($urlPath, '/storage/') === 0) {
-                    $relativePath = substr($urlPath, 9); // Enlever '/storage/'
-                    Log::info("Chemin extrait de l'URL: " . $relativePath);
-                    
-                    if (Storage::disk('public')->exists($relativePath)) {
-                        $filePath = $relativePath;
-                        $usePublicDisk = true;
-                        Log::info("Fichier trouvé via URL dans le disque public: " . $filePath);
-                    }
-                }
-            }
-            
-            // Méthode 3: Essayer dans le disque par défaut (fallback)
-            if (!$filePath && $attachment->file_path) {
-                $defaultPath = 'attachments/' . $attachment->file_path;
-                Log::info("Vérification dans le disque par défaut: " . $defaultPath);
-                
-                if (Storage::exists($defaultPath)) {
-                    $filePath = $defaultPath;
-                    $usePublicDisk = false;
-                    Log::info("Fichier trouvé dans le disque par défaut: " . $filePath);
-                }
-            }
-            
-            if (!$filePath) {
-                Log::error("Fichier non trouvé après toutes les tentatives");
-                
-                // Debug: Lister les fichiers disponibles
-                $publicFiles = Storage::disk('public')->files('attachments');
-                $defaultFiles = Storage::files('attachments');
-                
-                Log::info("Fichiers dans public/attachments:", $publicFiles);
-                Log::info("Fichiers dans attachments:", $defaultFiles);
-                
-                return response()->json(['message' => 'File not found on server'], 404);
-            }
-
-            // Obtenir le contenu du fichier
-            if ($usePublicDisk) {
-                $fileContent = Storage::disk('public')->get($filePath);
-                $fileSize = Storage::disk('public')->size($filePath);
-            } else {
-                $fileContent = Storage::get($filePath);
-                $fileSize = Storage::size($filePath);
-            }
-        
-            Log::info("Fichier lu avec succès, taille: " . $fileSize . " bytes");
-
-            // Déterminer le type MIME
-            $mimeType = $attachment->type ?? 'application/octet-stream';
-            
-            // Nettoyer le nom du fichier pour éviter les problèmes d'encodage
-            $fileName = preg_replace('/[^\w\-_\.]/', '_', $attachment->name);
-
-            // Retourner le fichier avec les bons headers
-            return response($fileContent)
-                ->header('Content-Type', $mimeType)
-                ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"')
-                ->header('Content-Length', $fileSize)
-                ->header('Cache-Control', 'no-cache, no-store, must-revalidate')
-                ->header('Pragma', 'no-cache')
-                ->header('Expires', '0')
-                ->header('Access-Control-Allow-Origin', '*')
-                ->header('Access-Control-Allow-Methods', 'GET')
-                ->header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Clerk-User-Id');
-            
-        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-            Log::error('Attachment not found: ' . $e->getMessage());
-            return response()->json(['message' => 'Attachment not found'], 404);
-        } catch (\Exception $e) {
-            Log::error('Error downloading attachment: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
-            return response()->json(['message' => 'Error downloading attachment', 'error' => $e->getMessage()], 500);
         }
     }
 
