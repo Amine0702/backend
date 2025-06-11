@@ -16,20 +16,9 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password')->nullable(); // Make password nullable for Clerk users
-            $table->string('clerk_user_id')->unique()->nullable();
+            $table->string('clerk_user_id')->unique();
             $table->string('profile_picture_url')->nullable();
-            $table->enum('role', ['admin', 'user'])->default('user');
-            $table->string('phone')->nullable();
-            $table->string('job_title')->nullable();
-            $table->string('company')->nullable();
-            $table->string('location')->nullable();
-            $table->text('bio')->nullable();
-            $table->text('skills')->nullable();
-            $table->string('website')->nullable();
-            $table->string('linkedin')->nullable();
-            $table->string('github')->nullable();
-            $table->string('twitter')->nullable();
+            $table->string('role')->default('user'); // user, admin, etc.
             $table->rememberToken();
             $table->timestamps();
         });

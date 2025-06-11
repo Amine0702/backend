@@ -28,73 +28,35 @@ class ProjectController extends Controller
      */
     public function getUserProjects(string $clerkUserId)
     {
-        try {
-            Log::info('Getting projects for user:', ['clerk_user_id' => $clerkUserId]);
+        // Find the team member
+        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
 
-            // Vérifier si l'utilisateur existe
-            $user = User::where('clerk_user_id', $clerkUserId)->first();
-        
-            if (!$user) {
-                Log::warning('User not found for clerk_user_id:', ['clerk_user_id' => $clerkUserId]);
-            
-                // Retourner une réponse vide au lieu d'une erreur
-                return response()->json([
-                    'success' => true,
-                    'message' => 'User not found, returning empty projects',
-                    'projects' => [],
-                    'user_exists' => false
-                ], 200);
-            }
-
-            // Vérifier si l'utilisateur est un membre d'équipe
-            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
-            
-            if (!$teamMember) {
-                Log::warning('Team member not found for clerk_user_id:', ['clerk_user_id' => $clerkUserId]);
-                
-                // Retourner une réponse vide au lieu d'une erreur
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Team member not found, returning empty projects',
-                    'projects' => [],
-                    'user_exists' => true,
-                    'team_member_exists' => false
-                ], 200);
-            }
-
-            // Récupérer les projets de l'utilisateur
-            $projects = Project::with(['columns.tasks', 'teamMembers'])
-                ->whereHas('teamMembers', function ($query) use ($teamMember) {
-                    $query->where('team_member_id', $teamMember->id);
-                })
-                ->get();
-
-            Log::info('Found projects:', ['count' => $projects->count()]);
-
-            return response()->json([
-                'success' => true,
-                'projects' => $projects,
-                'user_exists' => true,
-                'team_member_exists' => true
-            ], 200);
-
-        } catch (\Exception $e) {
-            Log::error('Error in getUserProjects:', [
-                'message' => $e->getMessage(),
-                'clerk_user_id' => $clerkUserId,
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            // Retourner une réponse d'erreur mais pas un 500
-            return response()->json([
-                'success' => false,
-                'message' => 'Error retrieving projects: ' . $e->getMessage(),
-                'projects' => [],
-                'error' => $e->getMessage()
-            ], 200); // 200 au lieu de 500 pour éviter les erreurs côté frontend
+        if (!$teamMember) {
+            return response()->json(['message' => 'Team member not found'], 404);
         }
+
+        // Get projects where the user is a team member
+        $managerProjects = $teamMember->projects()
+            ->wherePivot('role', 'manager')
+            ->get();
+
+        // Get projects where the user is invited
+        $invitedProjects = $teamMember->projects()
+            ->wherePivot('role', '!=', 'manager')
+            ->get();
+
+        // Filter projects by status
+        $pendingProjects = $managerProjects->where('status', 'pending');
+        $approvedManagerProjects = $managerProjects->where('status', 'approved');
+        $approvedInvitedProjects = $invitedProjects->where('status', 'approved');
+        $rejectedProjects = $managerProjects->where('status', 'rejected');
+
+        return response()->json([
+            'managerProjects' => $approvedManagerProjects,
+            'invitedProjects' => $approvedInvitedProjects,
+            'pendingProjects' => $pendingProjects,
+            'rejectedProjects' => $rejectedProjects,
+        ]);
     }
 
     /**
