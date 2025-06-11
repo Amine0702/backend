@@ -46,10 +46,26 @@ class ProjectController extends Controller
                 ], 200);
             }
 
+            // Vérifier si l'utilisateur est un membre d'équipe
+            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$teamMember) {
+                Log::warning('Team member not found for clerk_user_id:', ['clerk_user_id' => $clerkUserId]);
+                
+                // Retourner une réponse vide au lieu d'une erreur
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Team member not found, returning empty projects',
+                    'projects' => [],
+                    'user_exists' => true,
+                    'team_member_exists' => false
+                ], 200);
+            }
+
             // Récupérer les projets de l'utilisateur
             $projects = Project::with(['columns.tasks', 'teamMembers'])
-                ->whereHas('teamMembers', function ($query) use ($user) {
-                    $query->where('team_member_id', $user->id);
+                ->whereHas('teamMembers', function ($query) use ($teamMember) {
+                    $query->where('team_member_id', $teamMember->id);
                 })
                 ->get();
 
@@ -58,7 +74,8 @@ class ProjectController extends Controller
             return response()->json([
                 'success' => true,
                 'projects' => $projects,
-                'user_exists' => true
+                'user_exists' => true,
+                'team_member_exists' => true
             ], 200);
 
         } catch (\Exception $e) {
@@ -66,13 +83,14 @@ class ProjectController extends Controller
                 'message' => $e->getMessage(),
                 'clerk_user_id' => $clerkUserId,
                 'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             // Retourner une réponse d'erreur mais pas un 500
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving projects',
+                'message' => 'Error retrieving projects: ' . $e->getMessage(),
                 'projects' => [],
                 'error' => $e->getMessage()
             ], 200); // 200 au lieu de 500 pour éviter les erreurs côté frontend

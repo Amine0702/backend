@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
 use App\Models\TeamMember;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -15,18 +16,44 @@ class NotificationController extends Controller
      */
     public function getUserNotifications(Request $request)
     {
-        $clerkUserId = $request->header('X-Clerk-User-Id');
-        if (!$clerkUserId) {
-            return response()->json(['message' => 'Utilisateur non authentifié'], 401);
-        }
-
-        // Trouver le membre d'équipe
-        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
-        if (!$teamMember) {
-            return response()->json(['message' => 'Membre d\'équipe non trouvé'], 404);
-        }
-
         try {
+            $clerkUserId = $request->header('X-Clerk-User-Id');
+            
+            if (!$clerkUserId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non authentifié',
+                    'notifications' => [],
+                    'unread_count' => 0
+                ], 401);
+            }
+
+            // Vérifier si l'utilisateur existe
+            $user = User::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$user) {
+                Log::warning('User not found for notifications:', ['clerk_user_id' => $clerkUserId]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'User not found, returning empty notifications',
+                    'notifications' => [],
+                    'unread_count' => 0
+                ], 200);
+            }
+
+            // Trouver le membre d'équipe
+            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$teamMember) {
+                Log::warning('Team member not found for notifications:', ['clerk_user_id' => $clerkUserId]);
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Team member not found, returning empty notifications',
+                    'notifications' => [],
+                    'unread_count' => 0
+                ], 200);
+            }
+
             // Récupérer les notifications non lues en premier, puis les notifications lues
             $notifications = Notification::where('user_id', $teamMember->id)
                 ->with('sender')
@@ -58,12 +85,19 @@ class NotificationController extends Controller
             $unreadCount = $notifications->where('read', false)->count();
 
             return response()->json([
+                'success' => true,
                 'notifications' => $transformedNotifications,
                 'unread_count' => $unreadCount
             ]);
         } catch (\Exception $e) {
             Log::error('Error fetching notifications: ' . $e->getMessage());
-            return response()->json(['message' => 'Error fetching notifications: ' . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching notifications',
+                'notifications' => [],
+                'unread_count' => 0,
+                'error' => $e->getMessage()
+            ], 200); // 200 au lieu de 500
         }
     }
 
@@ -72,35 +106,61 @@ class NotificationController extends Controller
      */
     public function markAsRead(Request $request, $id)
     {
-        $clerkUserId = $request->header('X-Clerk-User-Id');
-        if (!$clerkUserId) {
-            return response()->json(['message' => 'Utilisateur non authentifié'], 401);
-        }
-
-        // Trouver le membre d'équipe
-        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
-        if (!$teamMember) {
-            return response()->json(['message' => 'Membre d\'équipe non trouvé'], 404);
-        }
-
         try {
+            $clerkUserId = $request->header('X-Clerk-User-Id');
+            
+            if (!$clerkUserId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non authentifié'
+                ], 401);
+            }
+
+            // Vérifier si l'utilisateur existe
+            $user = User::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non trouvé'
+                ], 404);
+            }
+
+            // Trouver le membre d'équipe
+            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$teamMember) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Membre d\'équipe non trouvé'
+                ], 404);
+            }
+
             $notification = Notification::where('id', $id)
                 ->where('user_id', $teamMember->id)
                 ->first();
 
             if (!$notification) {
-                return response()->json(['message' => 'Notification non trouvée'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Notification non trouvée'
+                ], 404);
             }
 
             $notification->update(['read' => true]);
 
             return response()->json([
+                'success' => true,
                 'message' => 'Notification marquée comme lue',
                 'notification' => $notification
             ]);
         } catch (\Exception $e) {
             Log::error('Error marking notification as read: ' . $e->getMessage());
-            return response()->json(['message' => 'Error marking notification as read: ' . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error marking notification as read',
+                'error' => $e->getMessage()
+            ], 200); // 200 au lieu de 500
         }
     }
 
@@ -109,28 +169,51 @@ class NotificationController extends Controller
      */
     public function markAllAsRead(Request $request)
     {
-        $clerkUserId = $request->header('X-Clerk-User-Id');
-        if (!$clerkUserId) {
-            return response()->json(['message' => 'Utilisateur non authentifié'], 401);
-        }
-
-        // Trouver le membre d'équipe
-        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
-        if (!$teamMember) {
-            return response()->json(['message' => 'Membre d\'équipe non trouvé'], 404);
-        }
-
         try {
+            $clerkUserId = $request->header('X-Clerk-User-Id');
+            
+            if (!$clerkUserId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non authentifié'
+                ], 401);
+            }
+
+            // Vérifier si l'utilisateur existe
+            $user = User::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non trouvé'
+                ], 404);
+            }
+
+            // Trouver le membre d'équipe
+            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$teamMember) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Membre d\'équipe non trouvé'
+                ], 404);
+            }
+
             Notification::where('user_id', $teamMember->id)
                 ->where('read', false)
                 ->update(['read' => true]);
 
             return response()->json([
+                'success' => true,
                 'message' => 'Toutes les notifications ont été marquées comme lues'
             ]);
         } catch (\Exception $e) {
             Log::error('Error marking all notifications as read: ' . $e->getMessage());
-            return response()->json(['message' => 'Error marking all notifications as read: ' . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error marking all notifications as read',
+                'error' => $e->getMessage()
+            ], 200); // 200 au lieu de 500
         }
     }
 
@@ -139,34 +222,60 @@ class NotificationController extends Controller
      */
     public function deleteNotification(Request $request, $id)
     {
-        $clerkUserId = $request->header('X-Clerk-User-Id');
-        if (!$clerkUserId) {
-            return response()->json(['message' => 'Utilisateur non authentifié'], 401);
-        }
-
-        // Trouver le membre d'équipe
-        $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
-        if (!$teamMember) {
-            return response()->json(['message' => 'Membre d\'équipe non trouvé'], 404);
-        }
-
         try {
+            $clerkUserId = $request->header('X-Clerk-User-Id');
+            
+            if (!$clerkUserId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non authentifié'
+                ], 401);
+            }
+
+            // Vérifier si l'utilisateur existe
+            $user = User::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Utilisateur non trouvé'
+                ], 404);
+            }
+
+            // Trouver le membre d'équipe
+            $teamMember = TeamMember::where('clerk_user_id', $clerkUserId)->first();
+            
+            if (!$teamMember) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Membre d\'équipe non trouvé'
+                ], 404);
+            }
+
             $notification = Notification::where('id', $id)
                 ->where('user_id', $teamMember->id)
                 ->first();
 
             if (!$notification) {
-                return response()->json(['message' => 'Notification non trouvée'], 404);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Notification non trouvée'
+                ], 404);
             }
 
             $notification->delete();
 
             return response()->json([
+                'success' => true,
                 'message' => 'Notification supprimée avec succès'
             ]);
         } catch (\Exception $e) {
             Log::error('Error deleting notification: ' . $e->getMessage());
-            return response()->json(['message' => 'Error deleting notification: ' . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error deleting notification',
+                'error' => $e->getMessage()
+            ], 200); // 200 au lieu de 500
         }
     }
 }
