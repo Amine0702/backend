@@ -12,6 +12,8 @@ use App\Mail\UserInvitationMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+
 
 class UserController extends Controller
 {
@@ -20,61 +22,97 @@ class UserController extends Controller
      */
     public function createOrUpdateUser(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'name' => 'required|string|max:255',
-            'clerkUserId' => 'required|string',
-            'profilePictureUrl' => 'nullable|string',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
-        }
-
-        // Check if user exists
-        $user = User::where('clerk_user_id', $request->clerkUserId)->first();
-
-        if ($user) {
-            // Update existing user
-            $user->update([
-                'name' => $request->name,
-                'email' => $request->email,
-                'profile_picture_url' => $request->profilePictureUrl,
-            ]);
-        } else {
-            // Create new user
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'clerk_user_id' => $request->clerkUserId,
-                'profile_picture_url' => $request->profilePictureUrl,
-                'role' => $request->email === 'amineabdallah2k23@gmail.com' ? 'admin' : 'user',
+        try {
+            $validator = Validator::make($request->all(), [
+                'email' => 'required|email',
+                'name' => 'required|string|max:255',
+                'clerkUserId' => 'required|string',
+                'profilePictureUrl' => 'nullable|string',
             ]);
 
-            // Also create a team member record
-            TeamMember::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'avatar' => $request->profilePictureUrl,
-                'clerk_user_id' => $request->clerkUserId,
-            ]);
-
-            // Check if there was a pending invitation for this email
-            $pendingInvitation = UserInvitation::where('email', $request->email)
-                ->where('status', 'pending')
-                ->first();
-
-            if ($pendingInvitation) {
-                // Update invitation status to accepted
-                $pendingInvitation->update(['status' => 'accepted']);
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
             }
-        }
 
-        return response()->json([
-            'message' => 'User created/updated successfully',
-            'user' => $user,
-            'role' => $user->role,
-        ], 200);
+            // Check if user exists
+            $user = User::where('clerk_user_id', $request->clerkUserId)->first();
+
+            if ($user) {
+                // Update existing user
+                $user->update([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'profile_picture_url' => $request->profilePictureUrl,
+                ]);
+            } else {
+                // Create new user with default values
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'clerk_user_id' => $request->clerkUserId,
+                    'profile_picture_url' => $request->profilePictureUrl,
+                    'role' => $request->email === 'amineabdallah2k23@gmail.com' ? 'admin' : 'user',
+                    'phone' => null,
+                    'job_title' => null,
+                    'company' => null,
+                    'location' => null,
+                    'bio' => null,
+                    'skills' => null,
+                    'website' => null,
+                    'linkedin' => null,
+                    'github' => null,
+                    'twitter' => null,
+                ]);
+
+                // Create team member record with error handling
+                try {
+                    TeamMember::create([
+                        'name' => $request->name,
+                        'email' => $request->email,
+                        'avatar' => $request->profilePictureUrl,
+                        'clerk_user_id' => $request->clerkUserId,
+                    ]);
+                } catch (\Exception $e) {
+                    // Log the error but don't fail the user creation
+                    Log::error('Failed to create team member: ' . $e->getMessage());
+                }
+
+                // Check if there was a pending invitation for this email
+                try {
+                    $pendingInvitation = UserInvitation::where('email', $request->email)
+                        ->where('status', 'pending')
+                        ->first();
+
+                    if ($pendingInvitation) {
+                        // Update invitation status to accepted
+                        $pendingInvitation->update(['status' => 'accepted']);
+                    }
+                } catch (\Exception $e) {
+                    // Log the error but don't fail the user creation
+                    Log::error('Failed to update invitation status: ' . $e->getMessage());
+                }
+            }
+
+            return response()->json([
+                'message' => 'User created/updated successfully',
+                'user' => $user,
+                'role' => $user->role,
+            ], 200);
+
+        } catch (\Exception $e) {
+            Log::error('Error in createOrUpdateUser: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'message' => 'Une erreur est survenue lors de la création/mise à jour de l\'utilisateur',
+                'error' => $e->getMessage(),
+                'debug' => [
+                    'request_data' => $request->all(),
+                    'error_line' => $e->getLine(),
+                    'error_file' => $e->getFile(),
+                ]
+            ], 500);
+        }
     }
 
     /**
