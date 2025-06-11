@@ -12,9 +12,6 @@ use App\Http\Controllers\NoteController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\NotificationController;
 
-
-
-
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -25,6 +22,11 @@ use App\Http\Controllers\NotificationController;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
+
+// Health check route
+Route::get('/health', function () {
+    return response()->json(['status' => 'OK', 'timestamp' => now()]);
+});
 
 // User routes
 Route::get('/users', [UserController::class, 'getAllUsers']);
@@ -68,11 +70,8 @@ Route::post('/projects/reports/schedule', [ProjectController::class, 'scheduleRe
 Route::post('/projects/{id}/reports/schedule', [ProjectController::class, 'scheduleReport']);
 Route::get('/reports/history', [ProjectController::class, 'getReportHistory']);
 
-
 // Dashboard routes
 Route::get('/dashboard/data', [ProjectController::class, 'getDashboardData']);
-
-
 
 // Column routes
 Route::post('/columns', [ColumnController::class, 'store']);
@@ -112,21 +111,15 @@ Route::put('/notes/{id}', [NoteController::class, 'update']);
 Route::delete('/notes/{id}', [NoteController::class, 'destroy']);
 Route::get('/notes/search', [NoteController::class, 'search']);
 
-
-
-
-
 // AI routes
 Route::post('/ai/generate-task', [AIController::class, 'generateTask']);
 Route::get('/ai/generated-tasks', [AIController::class, 'getAIGeneratedTasks']);
 Route::post('/ai/chat', [AIController::class, 'chat']);
 
-
 // Routes pour l'approbation des projets
 Route::get('/admin/projects/pending', [ProjectController::class, 'getPendingProjects']);
 Route::post('/admin/projects/{id}/approve', [ProjectController::class, 'approveProject']);
 Route::post('/admin/projects/{id}/reject', [ProjectController::class, 'rejectProject']);
-
 
 // Routes pour les notifications
 Route::get('/notifications', [NotificationController::class, 'getUserNotifications']);
@@ -141,8 +134,10 @@ Route::get('/users/{id}/details', [UserController::class, 'getUserDetailsById'])
 Route::get('/projects/stats/monthly', [ProjectController::class, 'getProjectStatsByMonth']);
 Route::get('/projects/{id}/task-analysis', [ProjectController::class, 'getProjectTaskAnalysis']);
 
-
-
-
-
-
+// Catch-all route for debugging (optional)
+Route::fallback(function () {
+    return response()->json([
+        'message' => 'Route not found',
+        'timestamp' => now()
+    ], 404);
+});
